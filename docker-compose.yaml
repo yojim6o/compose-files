@@ -1,0 +1,99 @@
+ networks:
+   default:
+     external: true
+     name: stacks
+
+ services:
+   stacks:
+     image: zelest/stacks:latest
+     container_name: stacks
+     stop_signal: SIGTERM
+     stop_grace_period: 30s
+     ports:
+       # Change the left port if 7788 is already in use
+       - "7788:7788"
+     volumes:
+       # REQUIRED - change these paths to match your system
+       - "/home/gabriel/docker/stacks/config:/opt/stacks/config" # Configuration files
+       - "/home/gabriel/docker/stacks/download:/opt/stacks/download" # Downloaded files
+       - "/home/gabriel/docker/stacks/logs:/opt/stacks/logs" # Log files
+
+       # OPTIONAL: Separate incomplete folder (requires setting in Stacks UI)
+       # Uncomment and set incomplete_folder_path to "/incomplete" in the UI
+       - "/home/gabriel/docker/stacks/download/incomplete:/opt/stacks/incomplete"
+
+     restart: unless-stopped
+     environment:
+       # These only apply on first run, afterward edit config.yaml directly
+       # or update the configuration from the UI.
+       - USERNAME=admin # Default admin username (change if desired)
+       - PASSWORD=stacks # Default admin password - CHANGE THIS!
+       - PUID=1000
+       - PGID=1000
+
+       # Uncomment to reset the admin password to the above values on startup
+       # - RESET_ADMIN=true
+
+       # If you're using the included flaresolverr, this will automatically
+       # connect it. If you already got it running, you can change this
+       # address to match your local setup, or delete this variable and set
+       # it up inside Stacks later.
+       - SOLVERR_URL=flaresolverr:8191
+
+       # Set your timezone:
+       # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+       - TZ=UTC
+
+   # Optional, but recommended - bypasses Cloudflare and DDoS-Guard
+   # protection on mirror sites. Required if you encounter 403 errors when
+   # downloading. Not needed for fast downloads.
+   flaresolverr:
+       image: ghcr.io/flaresolverr/flaresolverr:latest
+       container_name: flaresolverr
+       ports:
+         - "8191:8191"
+       environment:
+         - LOG_LEVEL=info
+       restart: unless-stopped
+   firefox:
+        container_name: firefox
+        ports:
+          - "3000:3000"
+          - "3001:3001"
+        volumes:
+          - "/home/gabriel/docker/stacks/firefox/config:/config"
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Etc/UTC
+            - FIREFOX_CLI=https://www.linuxserver.io/
+        image: lscr.io/linuxserver/firefox:latest
+   calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Madrid
+    ports:
+      - "8080:8080"   # GUI de Calibre (noVNC)
+    volumes:
+      - /home/gabriel/docker/stacks/calibre/config:/config
+      - /home/gabriel/docker/stacks/download:/library
+    restart: unless-stopped
+
+   calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Madrid
+    volumes:
+      - "/home/gabriel/docker/stacks/calibre/config/Biblioteca de calibre/:/books"
+      - /home/gabriel/docker/stacks/calibre-web-config:/config
+    ports:
+      - "8083:8083"
+    depends_on:
+      - calibre
+    restart: unless-stopped
